@@ -1,0 +1,40 @@
+[package]
+name = "rp2040_oled_test"
+version = "0.1.0"
+authors = ["yuri volkov"]
+edition = "2021"
+
+[dependencies]
+embedded-hal = "1.0.0"
+panic-halt = "1.0.0"
+portable-atomic = {version = "1", features = ["critical-section"]}
+# vcc-gnd-yd-rp2040 = "0.6.0"
+vcc-gnd-yd-rp2040 = {git = "https://github.com/Tommypop2/rp-hal-boards.git", branch = "main"}
+rtic = {version = "2.2.0", features = ["thumbv6-backend"]}
+rtic-monotonics = {version = "2.1.0", features = ["cortex-m-systick"]}
+heapless = "0.9.2"
+smart-leds = "0.4.0"
+ws2812-pio = "0.9.0"
+tinyrand = "0.5.0"
+# rtic-sync = "1.4.0"
+# ssd1309 = "0.4.0"
+usb-device = "0.3.2"
+usbd-webusb = "1.0.2"
+usbd-storage = "2.0.0"
+usbd-serial = "0.2.2"
+
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
+
+
+# Set the default for dependencies.
+[profile.dev.package."*"]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+incremental = false
+debug = true
+lto = true
+opt-level = "s"
