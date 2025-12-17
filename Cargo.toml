@@ -1,5 +1,5 @@
 [package]
-name = "rp2040_oled_test"
+name = "webusb_blinky"
 version = "0.1.0"
 authors = ["yuri volkov"]
 edition = "2021"

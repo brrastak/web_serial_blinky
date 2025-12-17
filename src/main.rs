@@ -30,8 +30,8 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use usb_device::{class_prelude::*, prelude::*};
 use ws2812_pio::Ws2812;
 
-use rp2040_oled_test::adc_rand_seed::adc_seed;
-use rp2040_oled_test::garland::{
+use webusb_blinky::adc_rand_seed::adc_seed;
+use webusb_blinky::garland::{
     AMPLITUDE,
     no_pastel,
     triangle_wave,
