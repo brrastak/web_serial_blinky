@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>LED Control (Web Serial)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>LED Control (Web Serial)</h1>
+
+    <button id="connect">Connect</button>
+    <br><br>
+
+    <button id="on" disabled>Switch LED on</button>
+    <button id="off" disabled>Switch LED off</button>
+    <button id="toggle" disabled>Toggle LED</button>
+
+    <div id="status">LED status: disconnected</div>
+
+    <script>
+        let port;
+        let reader;
+        let writer;
+
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+
+        function setButtonsEnabled(enabled) {
+            document.getElementById("on").disabled = !enabled;
+            document.getElementById("off").disabled = !enabled;
+            document.getElementById("toggle").disabled = !enabled;
+        }
+
+        async function connect() {
+            try {
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 9600 });
+
+                writer = port.writable.getWriter();
+                reader = port.readable.getReader();
+
+                setButtonsEnabled(true);
+                document.getElementById("status").textContent =
+                    "LED status: connected";
+
+                readLoop();
+            } catch (err) {
+                console.error(err);
+                alert("Failed to connect");
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (!writer) return;
+            await writer.write(encoder.encode(cmd + "\n"));
+        }
+
+        async function readLoop() {
+            let buffer = "";
+
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+
+                    let lines = buffer.split("\n");
+                    buffer = lines.pop(); // incomplete line
+
+                    for (const line of lines) {
+                        handleMessage(line.trim());
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function handleMessage(msg) {
+            const status = document.getElementById("status");
+
+            if (msg === "LED_IS_ON") {
+                status.textContent = "LED status: ON";
+            } else if (msg === "LED_IS_OFF") {
+                status.textContent = "LED status: OFF";
+            } else if (msg.length > 0) {
+                status.textContent = "LED status: unknown (" + msg + ")";
+            }
+        }
+
+        // Button handlers
+        document.getElementById("connect").onclick = connect;
+        document.getElementById("on").onclick = () => sendCommand("LED_ON");
+        document.getElementById("off").onclick = () => sendCommand("LED_OFF");
+        document.getElementById("toggle").onclick = () => sendCommand("LED_TOGGLE");
+    </script>
+
+</body>
+
+</html>

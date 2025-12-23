@@ -3,14 +3,16 @@
 #![no_std]
 
 
-use core::mem::MaybeUninit;
+use cortex_m::singleton;
 use embedded_hal::digital::{
     OutputPin,
     StatefulOutputPin,
 };
+use ghostfat;
 use heapless::Vec;
 use panic_halt as _;
 use rtic_monotonics::systick::prelude::*;
+use rtic_sync::{channel::*, make_channel};
 use tinyrand::{StdRand, RandRange, Seeded};
 use smart_leds::{SmartLedsWrite, RGB8};
 use vcc_gnd_yd_rp2040 as rp;
@@ -26,12 +28,25 @@ use hal::{
         timer::Timer,
         watchdog::Watchdog,
     };
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
 use usb_device::{class_prelude::*, prelude::*};
+// use usbd_mass_storage::USB_CLASS_MSC;
+use usbd_scsi::Scsi;
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
+use usbd_storage::{
+    // subclass::{
+    //     scsi::{Scsi, ScsiCommand},
+    //     Command,
+    // },
+    // transport::{
+    //     bbb::{BulkOnly, BulkOnlyError},
+    //     TransportError,
+    // },
+    CLASS_MASS_STORAGE,
+};
 use ws2812_pio::Ws2812;
 
-use webusb_blinky::adc_rand_seed::adc_seed;
-use webusb_blinky::garland::{
+use web_serial_blinky::adc_rand_seed::adc_seed;
+use web_serial_blinky::garland::{
     AMPLITUDE,
     no_pastel,
     triangle_wave,
@@ -52,6 +67,8 @@ mod app {
     type UsbBus = UsbBusAllocator<hal::usb::UsbBus>;
     type UsbDev = UsbDevice<'static, hal::usb::UsbBus>;
     type Serial = SerialPort<'static, hal::usb::UsbBus>;
+    type Files = [ghostfat::File<'static, 512>; 2];
+    type Storage = Scsi<'static, hal::usb::UsbBus, ghostfat::GhostFat<'static>>;
 
 
     #[shared]
@@ -64,11 +81,12 @@ mod app {
         rgb_led: RgbLed,
         usb_dev: UsbDev,
         serial: Serial,
+        storage: Storage,
+        action_sender: Sender<'static, LedAction, 1>,
+        status_receiver: Receiver<'static, LedStatus, 1>,
     }
 
-    #[init (local = [
-        usb_bus: MaybeUninit<UsbBus> = MaybeUninit::uninit(),
-    ])]
+    #[init]
     fn init(cx: init::Context) -> (Shared, Local) {
 
         let mut resets = cx.device.RESETS;
@@ -122,23 +140,49 @@ mod app {
             true,
             &mut resets,
         ));
-        let usb_bus: &'static mut _ = cx.local.usb_bus.write(usb_bus);
+        let usb_bus: &'static mut _ = singleton!(: UsbBus = usb_bus).unwrap();
 
         // Set up the USB Communications Class Device driver
         let serial = SerialPort::new(usb_bus);
 
-        // Create a USB device with a fake VID and PID
-        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        // Virtual files in GhostFAT
+        let readme = b"Nothing to see here!\nMind your own business!";
+        // let file: ghostfat::File<> = ghostfat::File::new("README.txt", data).unwrap();
+        let control = include_bytes!("../web_interface/control.htm");
+        // let data = include_bytes!("../web_interface/test_include.txt");
+        let readme: ghostfat::File<> = ghostfat::File::new("readme.md ", readme).unwrap();
+        let control: ghostfat::File<> = ghostfat::File::new("control.htm", control).unwrap();
+        let files: &'static mut _ = singleton!(: Files = [control, readme]).unwrap();
+
+        let mut config: ghostfat::Config<> = ghostfat::Config::default();
+        config.volume_label = "Blinky";
+        let ghost_fat = ghostfat::GhostFat::new(
+            files,
+            config,
+        );
+
+        let storage = Scsi::new(
+            usb_bus, 
+            64,
+            ghost_fat,
+            "yuri",
+            "Web blinky",
+            "",
+        );
+
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x0011, 0x7788))
             .strings(&[StringDescriptors::default()
-                .manufacturer("Fake company")
-                .product("Serial port")
-                .serial_number("TEST")])
+                .manufacturer("yuri")
+                .product("Web blinky")])
             .unwrap()
-            .device_class(USB_CLASS_CDC)
+            .device_class(0x00)
             .build();
 
-        
-        heartbeat::spawn().ok();
+
+        let (action_sender, action_receiver) = make_channel!(LedAction, 1);
+        let (status_sender, status_receiver) = make_channel!(LedStatus, 1);
+
+        led::spawn(action_receiver, status_sender).ok();
         rgb_led::spawn().ok();
 
         (
@@ -149,57 +193,102 @@ mod app {
                 rgb_led,
                 usb_dev,
                 serial,
+                storage,
+                action_sender,
+                status_receiver,
             },
         )
     }
 
 
-    #[task(binds = USBCTRL_IRQ, local = [usb_dev, serial], priority = 1)]
+    // #[task(binds = USBCTRL_IRQ, local = [usb_dev, serial, storage], priority = 1)]
+    #[task(binds = USBCTRL_IRQ, local = [usb_dev, serial, storage, action_sender, status_receiver], priority = 1)]
     fn usb(cx: usb::Context) {
 
         let usb::LocalResources
-            {usb_dev, serial, ..} = cx.local;
+            // {usb_dev, serial, storage, ..} = cx.local;
+            {usb_dev, serial, storage, action_sender, status_receiver, ..} = cx.local;
 
-        if usb_dev.poll(&mut [serial]) {
+        let ON_MES = b"LED_ON";
+        let OFF_MES = b"LED_OFF";
+        let TOGGLE_MES = b"LED_TOGGLE";
+
+        // if usb_dev.poll(&mut [serial, storage, web]) {
+        if usb_dev.poll(&mut [serial, storage]) {
             let mut buf = [0u8; 64];
             match serial.read(&mut buf) {
-                Err(_e) => {
-                    // Do nothing
-                }
-                Ok(0) => {
-                    // Do nothing
-                }
+                Err(_e) => {}
+                Ok(0) => {}
                 Ok(count) => {
-                    // Convert to upper case
-                    buf.iter_mut().take(count).for_each(|b| {
-                        b.make_ascii_uppercase();
-                    });
-                    // Send back to the host
-                    let mut wr_ptr = &buf[..count];
-                    while !wr_ptr.is_empty() {
-                        match serial.write(wr_ptr) {
-                            Ok(len) => wr_ptr = &wr_ptr[len..],
-                            // On error, just drop unwritten data.
-                            // One possible error is Err(WouldBlock), meaning the USB
-                            // write buffer is full.
-                            Err(_) => break,
-                        };
+
+                    if count >= ON_MES.len() && &buf[..ON_MES.len()] == ON_MES {
+                        action_sender.try_send(LedAction::ON).ok();
+                    } else if count >= OFF_MES.len() && &buf[..OFF_MES.len()] == OFF_MES {
+                        action_sender.try_send(LedAction::OFF).ok();
+                    } else if count >= TOGGLE_MES.len() && &buf[..TOGGLE_MES.len()] == TOGGLE_MES {
+                        action_sender.try_send(LedAction::TOGGLE).ok();
+                    }
+                }
+            }
+        }
+
+        match status_receiver.try_recv() {
+            Err(_) => {}
+            Ok(status) => {
+                match status {
+                    LedStatus::ON => {
+                        serial.write(b"LED_IS_ON\n").ok();
+                    }
+                    LedStatus::OFF => {
+                        serial.write(b"LED_IS_OFF\n").ok();
                     }
                 }
             }
         }
     }
 
-    // Blink on-board LED
+    // Control on-board LED
     #[task(local = [led], priority = 1)]
-    async fn heartbeat(cx: heartbeat::Context) {
+    async fn led(cx: led::Context,
+        mut action_receiver: Receiver<'static, LedAction, 1>,
+        mut status_sender: Sender<'static, LedStatus, 1>,
+    ) {
 
-        let heartbeat::LocalResources
+        let led::LocalResources
             {led, ..} = cx.local;
 
+        let mut status = LedStatus::OFF;
+
+        let mut set_led = |st: &LedStatus|{
+            match st {
+                LedStatus::OFF => {
+                    led.set_low().ok();
+                }
+                LedStatus::ON => {
+                    led.set_high().ok();
+                }
+            }
+        };
+
         loop {
-            led.toggle().ok();
-            Mono::delay(1000.millis()).await;
+
+            let action = action_receiver.recv().await.unwrap();
+            match action {
+                LedAction::OFF => {
+                    status = LedStatus::OFF;
+                    set_led(&status);
+                }
+                LedAction::ON => {
+                    status = LedStatus::ON;
+                    set_led(&status);
+                }
+                LedAction::TOGGLE => {
+                    status = if status == LedStatus::ON {LedStatus::OFF}
+                        else {LedStatus::ON};
+                    set_led(&status);
+                }
+            }
+            status_sender.send(status).await.ok();
         }
     }
 
@@ -246,4 +335,16 @@ mod app {
             continue;
         }
     }
+}
+
+enum LedAction {
+    ON,
+    OFF,
+    TOGGLE,
+}
+
+#[derive(PartialEq, Copy, Clone)]
+enum LedStatus {
+    ON,
+    OFF,
 }
