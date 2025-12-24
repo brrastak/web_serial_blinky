@@ -72,7 +72,9 @@ mod app {
 
 
     #[shared]
-    struct Shared {}
+    struct Shared {
+        serial: Serial,
+    }
 
     #[local]
     struct Local {
@@ -80,10 +82,8 @@ mod app {
         led: Led,
         rgb_led: RgbLed,
         usb_dev: UsbDev,
-        serial: Serial,
         storage: Storage,
         action_sender: Sender<'static, LedAction, 1>,
-        status_receiver: Receiver<'static, LedStatus, 1>,
     }
 
     #[init]
@@ -184,67 +184,57 @@ mod app {
 
         led::spawn(action_receiver, status_sender).ok();
         rgb_led::spawn().ok();
+        status::spawn(status_receiver).ok();
 
         (
-            Shared {},
+            Shared {
+                serial,
+            },
             Local {
                 adc,
                 led,
                 rgb_led,
                 usb_dev,
-                serial,
                 storage,
                 action_sender,
-                status_receiver,
             },
         )
     }
 
 
-    // #[task(binds = USBCTRL_IRQ, local = [usb_dev, serial, storage], priority = 1)]
-    #[task(binds = USBCTRL_IRQ, local = [usb_dev, serial, storage, action_sender, status_receiver], priority = 1)]
+    #[task(binds = USBCTRL_IRQ, local = [usb_dev, storage, action_sender],
+        shared = [serial], priority = 1)]
     fn usb(cx: usb::Context) {
 
         let usb::LocalResources
-            // {usb_dev, serial, storage, ..} = cx.local;
-            {usb_dev, serial, storage, action_sender, status_receiver, ..} = cx.local;
+            {usb_dev, storage, action_sender, ..} = cx.local;
+
+        let usb::SharedResources
+            {mut serial, ..} = cx.shared;
 
         let ON_MES = b"LED_ON";
         let OFF_MES = b"LED_OFF";
         let TOGGLE_MES = b"LED_TOGGLE";
 
-        // if usb_dev.poll(&mut [serial, storage, web]) {
-        if usb_dev.poll(&mut [serial, storage]) {
-            let mut buf = [0u8; 64];
-            match serial.read(&mut buf) {
-                Err(_e) => {}
-                Ok(0) => {}
-                Ok(count) => {
+        serial.lock(|serial| {
+            if usb_dev.poll(&mut [serial, storage]) {
+                let mut buf = [0u8; 64];
+                match serial.read(&mut buf) {
+                    Err(_e) => {}
+                    Ok(0) => {}
+                    Ok(count) => {
 
-                    if count >= ON_MES.len() && &buf[..ON_MES.len()] == ON_MES {
-                        action_sender.try_send(LedAction::ON).ok();
-                    } else if count >= OFF_MES.len() && &buf[..OFF_MES.len()] == OFF_MES {
-                        action_sender.try_send(LedAction::OFF).ok();
-                    } else if count >= TOGGLE_MES.len() && &buf[..TOGGLE_MES.len()] == TOGGLE_MES {
-                        action_sender.try_send(LedAction::TOGGLE).ok();
+                        if count >= ON_MES.len() && &buf[..ON_MES.len()] == ON_MES {
+                            action_sender.try_send(LedAction::ON).ok();
+                        } else if count >= OFF_MES.len() && &buf[..OFF_MES.len()] == OFF_MES {
+                            action_sender.try_send(LedAction::OFF).ok();
+                        } else if count >= TOGGLE_MES.len() && &buf[..TOGGLE_MES.len()] == TOGGLE_MES {
+                            action_sender.try_send(LedAction::TOGGLE).ok();
+                        }
                     }
                 }
             }
-        }
-
-        match status_receiver.try_recv() {
-            Err(_) => {}
-            Ok(status) => {
-                match status {
-                    LedStatus::ON => {
-                        serial.write(b"LED_IS_ON\n").ok();
-                    }
-                    LedStatus::OFF => {
-                        serial.write(b"LED_IS_OFF\n").ok();
-                    }
-                }
-            }
-        }
+        })
     }
 
     // Control on-board LED
@@ -289,6 +279,31 @@ mod app {
                 }
             }
             status_sender.send(status).await.ok();
+        }
+    }
+
+    // Send LED status responce
+    #[task(shared = [serial], priority = 1)]
+    async fn status(cx: status::Context,
+        mut status_receiver: Receiver<'static, LedStatus, 1>,
+    ) {
+
+        let status::SharedResources
+            {mut serial, ..} = cx.shared;
+
+        loop {
+            let status = status_receiver.recv().await.unwrap();
+
+            serial.lock(|serial| {
+                match status {
+                    LedStatus::ON => {
+                        serial.write(b"LED_IS_ON\n").ok();
+                    }
+                    LedStatus::OFF => {
+                        serial.write(b"LED_IS_OFF\n").ok();
+                    }
+                }
+            })
         }
     }
 
