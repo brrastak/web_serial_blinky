@@ -146,11 +146,9 @@ mod app {
         let serial = SerialPort::new(usb_bus);
 
         // Virtual files in GhostFAT
-        let readme = b"Nothing to see here!\nMind your own business!";
-        // let file: ghostfat::File<> = ghostfat::File::new("README.txt", data).unwrap();
+        let readme = include_bytes!("../web_interface/README.md");
         let control = include_bytes!("../web_interface/control.htm");
-        // let data = include_bytes!("../web_interface/test_include.txt");
-        let readme: ghostfat::File<> = ghostfat::File::new("readme.md ", readme).unwrap();
+        let readme: ghostfat::File<> = ghostfat::File::new("README.md ", readme).unwrap();
         let control: ghostfat::File<> = ghostfat::File::new("control.htm", control).unwrap();
         let files: &'static mut _ = singleton!(: Files = [control, readme]).unwrap();
 
