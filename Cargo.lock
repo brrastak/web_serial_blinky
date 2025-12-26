@@ -464,16 +464,7 @@ version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f646caf906c20226733ed5b1374287eb97e3c2a5c227ce668c1f2ce20ae57c9"
 dependencies = [
- "num_enum_derive 0.5.11",
-]
-
-[[package]]
-name = "num_enum"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a015b430d3c108a207fd776d2e2196aaf8b1cf8cf93253e3a097ff3085076a1"
-dependencies = [
- "num_enum_derive 0.6.1",
+ "num_enum_derive",
 ]
 
 [[package]]
@@ -488,29 +479,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "num_enum_derive"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96667db765a921f7b295ffee8b60472b686a51d4f21c2ee4ffdb94c7013b65a6"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.111",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
-
-[[package]]
-name = "packing"
-version = "0.2.0"
-dependencies = [
- "packing_codegen 0.1.0",
- "typenum",
-]
 
 [[package]]
 name = "packing"
@@ -523,8 +495,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "packing"
+version = "0.2.0"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
+dependencies = [
+ "packing_codegen 0.1.0 (git+https://github.com/brrastak/stm32-usb.rs.git?branch=master)",
+ "typenum",
+]
+
+[[package]]
 name = "packing_codegen"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0a0ea25381cd681bf1d46e04a01590ea41bffc283b1cd96b1c25cd91635546f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -534,8 +517,7 @@ dependencies = [
 [[package]]
 name = "packing_codegen"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0a0ea25381cd681bf1d46e04a01590ea41bffc283b1cd96b1c25cd91635546f"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -573,15 +555,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76e09694b50f89f302ed531c1f2a7569f0be5867aee4ab4f8f729bbeec0078e3"
 dependencies = [
  "arrayvec",
- "num_enum 0.5.11",
+ "num_enum",
  "paste",
 ]
 
 [[package]]
 name = "portable-atomic"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
+checksum = "f59e70c4aef1e55797c2e8fd94a4f2a973fc972cfde0e0b05f683667b0cd39dd"
 dependencies = [
  "critical-section",
 ]
@@ -1018,9 +1000,10 @@ checksum = "562d481066bde0658276a35467c4af00bdc6ee726305698a55b86e61d7ad82bb"
 [[package]]
 name = "uf2_block"
 version = "0.1.0"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
 dependencies = [
  "bitmask",
- "packing 0.2.0",
+ "packing 0.2.0 (git+https://github.com/brrastak/stm32-usb.rs.git?branch=master)",
 ]
 
 [[package]]
@@ -1052,23 +1035,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "usbd-storage"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d77cd47e7efbb622f1c05b58113b6ecdd5a4ff90d4a5cafa37b1128c404599ef"
-dependencies = [
- "num_enum 0.6.1",
- "usb-device",
-]
-
-[[package]]
 name = "usbd_bulk_only_transport"
-version = "0.1.0"
+version = "0.1.1"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
 dependencies = [
  "embedded-hal 0.2.7",
  "itm_logger",
  "nb 0.1.3",
- "packing 0.2.0",
+ "packing 0.2.0 (git+https://github.com/brrastak/stm32-usb.rs.git?branch=master)",
  "typenum",
  "usb-device",
  "usbd_mass_storage",
@@ -1076,24 +1050,26 @@ dependencies = [
 
 [[package]]
 name = "usbd_mass_storage"
-version = "0.1.0"
+version = "0.1.1"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
 dependencies = [
  "embedded-hal 0.2.7",
  "itm_logger",
  "nb 0.1.3",
- "packing 0.2.0",
+ "packing 0.2.0 (git+https://github.com/brrastak/stm32-usb.rs.git?branch=master)",
  "typenum",
  "usb-device",
 ]
 
 [[package]]
 name = "usbd_scsi"
-version = "0.1.1"
+version = "0.1.2"
+source = "git+https://github.com/brrastak/stm32-usb.rs.git?branch=master#fa745ab9692d40618f1043d4b32e30c064b6217c"
 dependencies = [
  "embedded-hal 0.2.7",
  "itm_logger",
  "nb 0.1.3",
- "packing 0.2.0",
+ "packing 0.2.0 (git+https://github.com/brrastak/stm32-usb.rs.git?branch=master)",
  "typenum",
  "uf2_block",
  "usb-device",
@@ -1158,7 +1134,6 @@ dependencies = [
  "tinyrand",
  "usb-device",
  "usbd-serial",
- "usbd-storage",
  "usbd_scsi",
  "vcc-gnd-yd-rp2040",
  "ws2812-pio",
@@ -1209,8 +1184,3 @@ name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
-
-[[patch.unused]]
-name = "usbd-webusb"
-version = "1.0.3"
-source = "git+https://github.com/stellar-aria/usbd-webusb.git?branch=master#bc898e5ae86c4cb8ac8ad6229071419e20d928e7"

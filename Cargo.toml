@@ -6,11 +6,9 @@ edition = "2021"
 
 [dependencies]
 embedded-hal = "1.0.0"
-# embedded-hal = "0.2.7"
 panic-halt = "1.0.0"
-portable-atomic = {version = "1", features = ["critical-section"]}
-# vcc-gnd-yd-rp2040 = "0.5.0"
-vcc-gnd-yd-rp2040 = {git = "https://github.com/Tommypop2/rp-hal-boards.git", branch = "main"}
+portable-atomic = {version = "1.12.0", features = ["critical-section"]}
+vcc-gnd-yd-rp2040 = "0.6.0"
 rtic = {version = "2.2.0", features = ["thumbv6-backend"]}
 rtic-monotonics = {version = "2.1.0", features = ["cortex-m-systick"]}
 heapless = "0.9.2"
@@ -18,20 +16,18 @@ smart-leds = "0.4.0"
 ws2812-pio = "0.9.0"
 tinyrand = "0.5.0"
 rtic-sync = "1.4.0"
-# ssd1309 = "0.4.0"
 usb-device = "0.3.2"
-usbd-storage = {version = "2.0.0", features = ["bbb", "scsi"]}
 usbd-serial = "0.2.2"
 ghostfat = {version = "0.5.0", default-features = false}
 usbd_scsi = "0.1.0"
 cortex-m = "0.7.7"
-# usbd_scsi = {path = "../Forks/stm32-usb.rs/firmware/usbd_scsi"}
 
 
 [patch.crates-io]
-usbd_scsi = {path = "../Forks/stm32-usb.rs/firmware/usbd_scsi"}
-usbd-webusb = {git = "https://github.com/stellar-aria/usbd-webusb.git", branch = "master"}
-
+# usb-device v0.3.2
+usbd_scsi = {git = "https://github.com/brrastak/stm32-usb.rs.git", branch = "master"}
+# rp2040-hal v0.11.0
+vcc-gnd-yd-rp2040 = {git = "https://github.com/Tommypop2/rp-hal-boards.git", branch = "main"}
 
 
 [dev-dependencies]

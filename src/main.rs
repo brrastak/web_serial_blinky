@@ -4,10 +4,7 @@
 
 
 use cortex_m::singleton;
-use embedded_hal::digital::{
-    OutputPin,
-    StatefulOutputPin,
-};
+use embedded_hal::digital::OutputPin;
 use ghostfat;
 use heapless::Vec;
 use panic_halt as _;
@@ -29,20 +26,8 @@ use hal::{
         watchdog::Watchdog,
     };
 use usb_device::{class_prelude::*, prelude::*};
-// use usbd_mass_storage::USB_CLASS_MSC;
 use usbd_scsi::Scsi;
-use usbd_serial::{SerialPort, USB_CLASS_CDC};
-use usbd_storage::{
-    // subclass::{
-    //     scsi::{Scsi, ScsiCommand},
-    //     Command,
-    // },
-    // transport::{
-    //     bbb::{BulkOnly, BulkOnlyError},
-    //     TransportError,
-    // },
-    CLASS_MASS_STORAGE,
-};
+use usbd_serial::SerialPort;
 use ws2812_pio::Ws2812;
 
 use web_serial_blinky::adc_rand_seed::adc_seed;
